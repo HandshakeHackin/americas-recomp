@@ -18,7 +18,7 @@ dxasm = plain[3] if len(plain) > 3 else os.path.join(out, "dxasm.exe")
 os.makedirs(out, exist_ok=True)
 res = {}
 for f in sorted(glob.glob(os.path.join(src, "shader_*.ll"))):
-    n = re.search(r"shader_(\d+)", f).group(1)
+    n = re.search(r"shader_(\d+)", os.path.basename(f)).group(1)
     s_ll, w_ll, dxil = (os.path.join(out, p % n) for p in ("s%s.ll", "w%s.ll", "repl_%s.dxil"))
     r = subprocess.run([sys.executable, "-I", os.path.join(here, "xbox_dxil_lower.py"), f, s_ll], capture_output=True, text=True)
     if r.returncode:
