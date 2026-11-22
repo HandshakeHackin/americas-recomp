@@ -16,7 +16,9 @@ using namespace ShaderRecompiler;
 int main(int argc, char** argv) {
     if (argc < 4) return 2;
     std::ifstream f(argv[1], std::ios::binary);
+    if (!f) { std::printf("THROW cannot open shader file %s\n", argv[1]); return 1; }
     std::vector<char> raw((std::istreambuf_iterator<char>(f)), {});
+    if (raw.size() < sizeof(std::uint32_t)) { std::printf("THROW shader file has no complete instruction word\n"); return 1; }
     std::vector<std::uint32_t> code(raw.size() / 4);
     std::memcpy(code.data(), raw.data(), code.size() * 4);
     const std::uint32_t wave = std::stoul(argv[2]);
