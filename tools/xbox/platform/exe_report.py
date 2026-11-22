@@ -26,11 +26,19 @@ SUBSYSTEMS = {1: "native", 2: "windows GUI", 3: "windows console", 14: "xbox", 1
 
 
 def header(path):
-    d = open(path, "rb").read(4096)
-    pe = struct.unpack_from("<I", d, 0x3C)[0]
-    machine, nsec, stamp = struct.unpack_from("<HHI", d, pe + 4)
-    osz = struct.unpack_from("<H", d, pe + 20)[0]
-    opt = pe + 24
+    with open(path, "rb") as f:
+        f.seek(0x3C)
+        pe = struct.unpack("<I", f.read(4))[0]
+        f.seek(pe)
+        d = f.read(24)
+        machine, nsec, stamp = struct.unpack_from("<HHI", d, 4)
+        osz = struct.unpack_from("<H", d, 20)[0]
+        size = osz + 40 * nsec
+        rest = f.read(size)
+        if len(rest) != size:
+            raise ValueError("truncated PE optional header or section table")
+        d += rest
+    opt = 24
     magic = struct.unpack_from("<H", d, opt)[0]
     entry = struct.unpack_from("<I", d, opt + 16)[0]
     base = struct.unpack_from("<Q", d, opt + 24)[0] if magic == 0x20B else struct.unpack_from("<I", d, opt + 28)[0]
