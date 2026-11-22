@@ -58,6 +58,19 @@ jobs:
             echo "== $test"
             python3 "$test"
           done
+      - name: Check out the Xodus xgameruntime IDLs for the table surface test
+        uses: actions/checkout@v7
+        with:
+          repository: xodus-gaming/xgameruntime
+          ref: 642e41c7617310c5d1b39d4e525b01ecae261f9e
+          path: xodus-xgameruntime
+          persist-credentials: false
+      - name: xgameruntime table surface test
+        run: |
+          mkdir -p build-xgr
+          python3 -I tools/xbox/platform/xgr/idl_table.py xodus-xgameruntime/include build-xgr/table.json
+          c++ -std=c++20 -Wall -Wextra -Wpedantic -Werror tools/xbox/platform/xgr/surface_table_test.cpp -o build-xgr/surface_table_test
+          build-xgr/surface_table_test build-xgr/table.json
       # lavapipe reports maxSubgroupSize 8. The compute execution tests need
       # 32/64-wide subgroups and quad_test needs 32-lane quad operations, so
       # those stay a manual/GPU run. per_vertex_test needs

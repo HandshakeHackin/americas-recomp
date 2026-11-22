@@ -61,3 +61,31 @@ Behaviour of the implemented methods where the console is not matched exactly (w
 * Game UI drawn by the title (`runtime/impl_ui.cpp`, tested by `test_ui.cpp`): after `XGameUiSetUiCallbacks`, each of the message dialog, error dialog, player picker, profile card, send-invite, achievements and text entry calls whose callback is set calls it on its async block's queue (the process queue for a block without one) when the async work runs, with a callback handle, copies of the call's strings and arrays, and the title's context; the call stays pending until the matching `XGameUiSet*UiResponse`, whose values the Result calls then return. `useSystemUiIfAvailable` makes no difference because no system UI exists here. A null `callbacks` pointer clears them; a null member leaves that UI headless (`E_ABORT`). A response call returns `E_INVALIDARG` for a handle that no callback was given, that belongs to another kind of UI, that was already answered or whose call was canceled; `XAsyncCancel` ends a pending call with `E_ABORT`. `XGameUiShowTextEntryResultSize` counts the terminator of the title's text; the response is not checked against `maxTextLength`, and the player picker response is not checked against the selection limits. `XGameUiSetMultiplayerActivityGameInviteUiResponse` refuses every handle until the multiplayer activity invite UI (in an open pull request) routes to its callback.
   `XGameUiShowWebAuthentication(WithOptions)Async` check the user, an `https` request URI, the completion URI and the options (PreferFullscreen is ignored on PC, documented), then complete with `E_ABORT` like the other headless UI: no web view is shown and nothing is fetched. ResultSize and Result return that error and leave the result pointer null.
 * `XPackageUninstallChunks` (`runtime/impl_package.cpp`, tested by `test_package.cpp`): the one installed package needs every chunk to run, so after checking the package and selectors (a chunk-id-only selector is `E_INVALIDARG`, documented; an empty list is `E_INVALIDARG`, a local choice) it removes nothing, returns `S_OK`, and the chunks keep reporting Ready. No file is deleted.
+
+## Interface surface test
+
+`surface_table_test.cpp` checks the expected named dispatch-table surface on Linux, including methods that still have only a logging stub.
+Its fixed inventory covers 398 entries in 54 interfaces, independently of the generated `table.json` and `xgr_status.json` at test time.
+Each name must resolve through `TableSlot()` within its declaring interface to a named, in-range slot; the repeated
+`XPackageEnumeratePackages` and `XPackageRegisterPackageInstalled` names are checked in each interface version.
+This catches removals, renames and ambiguous entries, without pinning slot numbers or calling the methods.
+It does not check method signatures, DLL reachability, or implementation behaviour; the other `test_*.cpp` tests exercise those calls.
+
+The inventory follows the public API families in the [GDK reference](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/)
+and the licensed Xodus interface definitions used by `idl_table.py`; the [surface audit in #58](https://github.com/realdody/americas-recomp/issues/58#issuecomment-7079402931)
+describes the documentation gaps. In particular, the public function is
+[`XPackageGetPackageKind`](https://learn.microsoft.com/en-us/gaming/gdk/docs/reference/system/xpackage/functions/xpackagegetpackagekind?view=gdk-2610),
+but the interface table and override use `XPackageGetKind`. The test pins that naming difference explicitly.
+`XSystemGetDeviceType`, `XSystemGetRuntimeInfo`, and the deprecated `XPackageMount` have no named entry yet and are not required by this test.
+Adding new entries is allowed; an intentional rename or move requires updating the fixed inventory.
+
+The Linux CI job generates the table from the same pinned Xodus IDLs as the Windows job, then builds and runs this test.
+It reads `table.json` in the working directory by default, or a path passed as its sole argument.
+To run it locally without building the DLL or installing a Microsoft SDK:
+
+```sh
+mkdir -p build-xgr
+python3 -I tools/xbox/platform/xgr/idl_table.py /path/to/xodus/include build-xgr/table.json
+g++ -std=c++20 tools/xbox/platform/xgr/surface_table_test.cpp -o build-xgr/surface_table_test
+build-xgr/surface_table_test build-xgr/table.json
+```
