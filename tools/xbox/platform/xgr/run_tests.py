@@ -7,7 +7,7 @@ The IDLs are read to make table.json (idl_table.py) and the stub source (gen_stu
 Each test runs in the output directory with table.json next to it; test_save also runs a second time with `reopen`.
 In GitHub Actions each FAIL line becomes an error annotation and a summary table is written to the job summary.
 """
-import argparse, glob, os, pathlib, shutil, subprocess, sys, time, traceback
+import argparse, glob, locale, os, pathlib, shutil, subprocess, sys, time, traceback
 
 HERE = pathlib.Path(__file__).resolve().parent
 RUNTIME = HERE / "runtime"
@@ -46,8 +46,12 @@ def run_test(exe, args, env, cwd):
         p = subprocess.run([str(exe)] + args, env=env, cwd=cwd, capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
         out, code = p.stdout + p.stderr, p.returncode
     except subprocess.TimeoutExpired as e:
-        out = e.stdout if isinstance(e.stdout, str) else ""
-        out, code = out + "\nFAIL timed out after %d s" % TIMEOUT, None
+        captured = []
+        for value in (e.stdout, e.stderr):
+            if isinstance(value, bytes):
+                value = value.decode(locale.getpreferredencoding(False), errors="replace")
+            captured.append(value or "")
+        out, code = "".join(captured) + "\nFAIL timed out after %d s" % TIMEOUT, None
     return out, code, time.time() - started
 
 
@@ -123,10 +127,11 @@ def main():
         sys.exit("failed: " + ", ".join(failed))
 
 
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-try:
-    main()
-except Exception:
-    annotate("run_tests", traceback.format_exc().strip().splitlines()[-1])
-    raise
+if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    try:
+        main()
+    except Exception:
+        annotate("run_tests", traceback.format_exc().strip().splitlines()[-1])
+        raise
