@@ -54,7 +54,7 @@ class TestWave64Emulate(unittest.TestCase):
     DECLARED = 524304
     ACTUAL = {"01": 1048592, "02": 16}
 
-    def lower_all(self, validate):
+    def lower_all(self, validate, inputs_name="inputs"):
         run = subprocess.run
         attempts = []
 
@@ -75,7 +75,7 @@ class TestWave64Emulate(unittest.TestCase):
 
         script = os.path.join(PLATFORM, "lower_all.py")
         with tempfile.TemporaryDirectory() as directory:
-            inputs = Path(directory, "inputs")
+            inputs = Path(directory, inputs_name)
             inputs.mkdir()
             for number, name in self.KERNELS.items():
                 Path(inputs, f"shader_{number}.ll").write_bytes(Path(PLATFORM, name).read_bytes())
@@ -128,6 +128,11 @@ class TestWave64Emulate(unittest.TestCase):
             "02 emulated; validation: validation failed: error: Instructions must be of an allowed type.",
             "0 of 2 assembled and signed",
         ])
+
+    def test_lower_all_uses_the_filename_id_when_a_parent_contains_shader_digits(self):
+        attempts, lines = self.lower_all(lambda number, flags: (0, ""), "shader_900-inputs")
+        self.assertEqual(attempts, [("01", self.DECLARED), ("02", self.DECLARED)])
+        self.assertEqual(lines, ["01 emulated; ok", "02 emulated; ok", "2 of 2 assembled and signed"])
 
     def test_bundled_kernels_emulate_to_no_wave_operations(self):
         for name in ("wavelower_kernel.ll",):
