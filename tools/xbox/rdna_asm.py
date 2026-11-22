@@ -81,17 +81,21 @@ class Program:
         sdst = sdst[1] if isinstance(sdst, tuple) else sdst
         c0, l0 = src(s0)
         c1, l1 = src(s1)
+        if l0 is not None and l1 is not None and l0 != l1:
+            raise ValueError("SOP2 can only encode one unique literal value")
         self.words.append(0x80000000 | (SOP2[name] << 23) | (sdst << 16) | (c1 << 8) | c0)
-        for lit in (l0, l1):
-            if lit is not None:
-                self.words.append(lit)
+        lit = l0 if l0 is not None else l1
+        if lit is not None:
+            self.words.append(lit)
     def sopc(self, name, s0, s1):
         c0, l0 = src(s0)
         c1, l1 = src(s1)
+        if l0 is not None and l1 is not None and l0 != l1:
+            raise ValueError("SOPC can only encode one unique literal value")
         self.words.append(0xBF000000 | (SOPC[name] << 16) | (c1 << 8) | c0)
-        for lit in (l0, l1):
-            if lit is not None:
-                self.words.append(lit)
+        lit = l0 if l0 is not None else l1
+        if lit is not None:
+            self.words.append(lit)
     def mimg(self, name, vdata, vaddr, srsrc, dmask=0xf, dim=1, ssamp=0, a16=False):
         op = MIMG[name]
         self.words.append(0xF0000000 | ((op & 0x7f) << 18) | ((op >> 7) & 1) | (dim << 3) | (dmask << 8))
