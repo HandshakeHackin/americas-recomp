@@ -39,9 +39,12 @@ def parse(path):
     er, _ = dir_(0)
     if er:
         o = rva(er)
-        base, nf, nn, address_rva, names_rva = struct.unpack_from('<IIIII', d, o + 16)
-        addresses, names = rva(address_rva), rva(names_rva)
-        res['exports'] = [cs(rva(struct.unpack_from('<I', d, names + 4 * i)[0])) for i in range(nn)]
+        base, nf, nn, address_rva, names_rva, ordinals_rva = struct.unpack_from('<IIIIII', d, o + 16)
+        addresses, names, ordinals = rva(address_rva), rva(names_rva), rva(ordinals_rva)
+        for i in range(nn):
+            index = struct.unpack_from('<H', d, ordinals + 2 * i)[0]
+            if index < nf and struct.unpack_from('<I', d, addresses + 4 * index)[0]:
+                res['exports'].append(cs(rva(struct.unpack_from('<I', d, names + 4 * i)[0])))
         res['exports'].extend('#%d' % (base + i) for i in range(nf)
                               if struct.unpack_from('<I', d, addresses + 4 * i)[0])
     ir, _ = dir_(1)

@@ -88,6 +88,45 @@ class XboxPeImportsTests(unittest.TestCase):
         path.write_bytes(data)
         self.assertEqual(pe_imports.parse(path)["exports"], [])
 
+    def named_exports(self, names, plus=True):
+        path = self.provider(plus=plus, named=False)
+        data = bytearray(path.read_bytes())
+        if not plus:
+            struct.pack_into("<H", data, 0x44, 0x14C)
+        struct.pack_into("<IIIIII", data, 0x610, 7, 3, len(names), 0x2040, 0x2050, 0x2060)
+        struct.pack_into("<III", data, 0x640, 0x1020, 0, 0x1060)
+        cursor = 0x680
+        for i, (name, ordinal_index) in enumerate(names):
+            text = name.encode("ascii") + b"\0"
+            data[cursor:cursor + len(text)] = text
+            struct.pack_into("<I", data, 0x650 + 4 * i, 0x2000 + cursor - 0x600)
+            struct.pack_into("<H", data, 0x660 + 2 * i, ordinal_index)
+            cursor += len(text)
+        path.write_bytes(data)
+        return pe_imports.parse(path)["exports"]
+
+    def test_named_export_pointing_to_an_address_table_hole_is_not_provided(self):
+        for plus in (False, True):
+            with self.subTest(plus=plus):
+                self.assertEqual(self.named_exports([("missing_func", 1)], plus), ["#7", "#9"])
+
+    def test_named_export_with_an_out_of_range_ordinal_is_not_provided(self):
+        for plus in (False, True):
+            with self.subTest(plus=plus):
+                self.assertEqual(self.named_exports([("missing_func", 3)], plus), ["#7", "#9"])
+
+    def test_multiple_names_can_alias_one_filled_export_slot(self):
+        for plus in (False, True):
+            with self.subTest(plus=plus):
+                self.assertEqual(self.named_exports([("alias_func", 0), ("first_func", 0)], plus),
+                                 ["alias_func", "first_func", "#7", "#9"])
+
+    def test_export_names_use_their_ordinal_mapping_instead_of_name_position(self):
+        for plus in (False, True):
+            with self.subTest(plus=plus):
+                self.assertEqual(self.named_exports([("alpha", 2), ("beta", 0)], plus),
+                                 ["alpha", "beta", "#7", "#9"])
+
     def test_inventory_matches_imports_by_ordinal(self):
         self.provider()
         consumer = self.consumer()
