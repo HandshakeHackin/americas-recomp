@@ -10,6 +10,7 @@ def parse(path):
     opt = pe + 24
     magic = struct.unpack_from('<H', d, opt)[0]
     plus = magic == 0x20b
+    headers = struct.unpack_from('<I', d, opt + 60)[0]
     dd = opt + (112 if plus else 96)
     ndd = struct.unpack_from('<I', d, dd - 4)[0]
     secs = []
@@ -18,6 +19,8 @@ def parse(path):
         n, vs, va, rs, ro = struct.unpack_from('<8sIIII', d, s + 40 * i)
         secs.append((va, vs, ro, rs))
     def rva(r):
+        if 0 <= r < min(headers, len(d)):
+            return r
         for va, vs, ro, rs in secs:
             if va <= r < va + max(vs, rs):
                 return r - va + ro
